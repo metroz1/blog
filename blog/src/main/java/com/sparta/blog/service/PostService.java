@@ -1,78 +1,105 @@
 package com.sparta.blog.service;
 
-import com.sparta.blog.dto.PostDto;
+import com.sparta.blog.dto.requestDto.PostRequestDto;
+import com.sparta.blog.dto.responseDto.CommentResponseDto;
+import com.sparta.blog.dto.responseDto.MemberResponseDto;
+import com.sparta.blog.dto.responseDto.PostResponseDto;
+import com.sparta.blog.model.Comment;
+import com.sparta.blog.model.Member;
 import com.sparta.blog.model.Post;
+import com.sparta.blog.repository.CommentRepository;
+import com.sparta.blog.repository.MemberRepository;
 import com.sparta.blog.repository.PostRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.PathVariable;
 
+import javax.transaction.Transactional;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class PostService {
 
     private final PostRepository postRepository;
+    private final CommentRepository commentRepository;
 
-    @Autowired
-    public PostService(PostRepository postRepository) {
-        this.postRepository = postRepository;
+    public ResponseEntity<PostResponseDto> createPost(PostRequestDto postRequestDto, Member member) {
+        System.out.println(postRequestDto.getTitle() + " " + postRequestDto.getContent());
+
+        Post post = Post.builder()
+                .title(postRequestDto.getTitle())
+                .content(postRequestDto.getContent())
+                .author(member.getNickname())
+                .member(member)
+                .build();
+
+        PostResponseDto postResponseDto = new PostResponseDto(postRepository.save(post));
+        return new ResponseEntity<>(postResponseDto, HttpStatus.OK);
     }
 
-    public List<PostDto> getPosts() {
+    public ResponseEntity<List<PostResponseDto>> getPosts() {
+
         List<Post> posts = postRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"));
-        List<PostDto> postDtos = new ArrayList<>();
+        if (posts.isEmpty()) {
+            throw new RuntimeException("불러올 게시글 목록이 없습니다.");
+        }
+        List<PostResponseDto> postResponseDtoList = new ArrayList<>();
+
         for(int i = 0; i < posts.size(); i++) {
-            postDtos.add(new PostDto());
-            postDtos.get(i).setId(posts.get(i).getId());
-            postDtos.get(i).setPassword(posts.get(i).getPassword());
-            postDtos.get(i).setContent(posts.get(i).getContent());
-            postDtos.get(i).setWriter(posts.get(i).getContent());
-            postDtos.get(i).setTitle(posts.get(i).getTitle());
-
-            postDtos.get(i).setCreatedAt((posts.get(i).getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"))));
+            postResponseDtoList.add(new PostResponseDto(posts.get(i)));
         }
-        return postDtos;
+        return new ResponseEntity<>(postResponseDtoList, HttpStatus.OK);
     }
-    public String deletePost(PostDto postDto) {
-        if (passwordCheck(postDto)) {
-            postRepository.deleteById(postDto.getId());
-            return "삭제 완료";
+    public ResponseEntity<String> deletePost(Long id, Member member) {
+        Post post = postRepository.findById(id).orElseThrow(() -> new RuntimeException("해당 게시글이 없습니다."));
+
+        if(!post.getMember().getNickname().equals(member.getNickname()))
+            throw new RuntimeException("작성자만 삭제할 수 있습니다.");
+
+        postRepository.deleteById(id);
+        return new ResponseEntity<>("delete success", HttpStatus.OK);
+    }
+
+
+
+    public ResponseEntity<PostResponseDto> getPost(Long id) {
+
+        Post post = postRepository.findById(id).orElseThrow(() -> new RuntimeException("해당 게시물 정보가 없습니다."));
+
+        PostResponseDto postResponseDto = new PostResponseDto(post);
+
+        List<Comment> comments = commentRepository.findAllByPost_Id(id);
+        List<CommentResponseDto> commentResponseDtoList = new ArrayList<>();
+
+        for(Comment comment : comments) {
+            commentResponseDtoList.add(new CommentResponseDto(comment));
         }
-        else
-            return "비밀번호를 확인해주세요.";
+        postResponseDto.updateCommentDtoList(commentResponseDtoList);
+
+        return new ResponseEntity<>(postResponseDto, HttpStatus.OK);
     }
 
-    public Boolean passwordCheck(PostDto postDto) {
-        return postRepository.findById(postDto.getId()).orElse(null).getPassword().equals(postDto.getPassword());
-    }
 
-    public Post createPost(PostDto postDto) {
-        Post post = new Post(postDto);
-        postRepository.save(post);
-        return post;
-    }
+    @Transactional
+    public ResponseEntity<PostResponseDto> updatePost(Long id, PostRequestDto postRequestDto) {
 
-    public PostDto getPost(Long id) {
-        Post post = postRepository.findById(id).orElse(null);
-        PostDto postDto = new PostDto();
-        postDto.setId(post.getId());
-        postDto.setPassword(post.getPassword());
-        postDto.setContent(post.getContent());
-        postDto.setWriter(post.getContent());
-        postDto.setTitle(post.getTitle());
+        postRepository.existsPostById(id);
 
-        postDto.setCreatedAt((post.getCreatedAt().format(DateTimeFormatter.ofPattern("yyyy/MM/dd"))));
-        return postDto;
-    }
+        Post post = postRepository.findById(id).orElseThrow(() -> new RuntimeException("게시글을 찾을 수 없습니다."));
 
-    public String updatePost(PostDto postDto) {
-        Post post = postRepository.findById(postDto.getId()).orElseThrow(() -> new NullPointerException("해당 아이디가 존재하지 않습니다."));
-        post.updateDto(postDto);
-        postRepository.save(post);
-        return "수정 성공";
+        post.update(postRequestDto);
+
+
+        PostResponseDto postResponseDto = new PostResponseDto(postRepository.save(post));
+
+        return new ResponseEntity<>(postResponseDto, HttpStatus.OK);
     }
 
 }

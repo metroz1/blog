@@ -1,20 +1,26 @@
 package com.sparta.blog.model;
 
-import com.sparta.blog.dto.PostDto;
+import com.sparta.blog.dto.requestDto.PostRequestDto;
+import com.sparta.blog.util.BaseTimeEntity;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
 
 import javax.persistence.*;
+import java.util.List;
 
 @Entity
 @Getter
+@Builder
+@AllArgsConstructor
 @NoArgsConstructor
-public class Post extends BaseTimeEntity{
+public class Post extends BaseTimeEntity {
 
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
     private Long id;
-
     @Column(nullable = false)
     private String title;
 
@@ -22,26 +28,23 @@ public class Post extends BaseTimeEntity{
     private String content;
 
     @Column(nullable = false)
-    private String writer;
+    private String author;
+    @ManyToOne
+    @JoinColumn(name = "MEMBER_ID", nullable = false)
+    private Member member;
 
-    @Column(nullable = false)
-    private String password;
+    @OneToMany(cascade = CascadeType.REMOVE)
+    private List<Comment> commentList;
 
-    public Post(PostDto postDto) {
+    public Post(PostRequestDto postRequestDto, Member member) {
 
-        title = postDto.getTitle();
-        content = postDto.getContent();
-        writer = postDto.getWriter();
-        password = postDto.getPassword();
+        this.title = postRequestDto.getTitle();
+        this.content = postRequestDto.getContent();
+        this.member = member;
     }
 
-    public Post updateDto(PostDto postDto) {
-
-        title = postDto.getTitle();
-        content = postDto.getContent();
-        writer = postDto.getWriter();
-        password = postDto.getPassword();
-
-        return this;
+    public void update(PostRequestDto postRequestDto) {
+        this.title = postRequestDto.getTitle();
+        this.content = postRequestDto.getContent();
     }
 }
