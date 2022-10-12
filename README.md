@@ -19,3 +19,6 @@ API 명세서
 | 댓글 목록 조회  | GET.        | /api/comment/{post_id}.   |               | PostResponseDto
 | 댓글 수정      | PUT.         | /api/auth/comment/{id}. |  Authorization, Refresh-Token, CommentRequestDto | CommentResponseDto
 | 댓글 삭제      | DELETE.      | /api/auth/comment/{id}.  | Authorization, Refresh-Token, CommentRequestDto | String msg
+
+
+![blogdb](https://user-images.githubusercontent.com/96556213/195434227-89ca5625-9869-4639-9493-3f719b07cc19.png)
